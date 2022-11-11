@@ -1,73 +1,51 @@
+#define NO_MSP_CLASSIC_DEFINES
 #include "msp.h"
 
-volatile uint8_t button_S2;
-
-// funkcija koja definiše šta se dešava kada S2 uzrokuje prekid
+// korisnicki definisana funkcija za obradu prekida koji nastaju na portu P1
 void PORT1_IRQHandler(void)
 {
-		// inicijalizacija interrupt vector varijable
-		volatile uint16_t interrupt_vector;
-		interrupt_vector = P1->IV;
-		
-		// prekid je izazvao S2 (P1.4) a ne neki drugi digitalni ulaz porta 1
-		if (interrupt_vector == DIO_PORT_IV__IFG4)
-		{
-				// indikacija da je došlo do prekida 
-				button_S2 = !button_S2;
-				
-				// invertuj stanje koje dovodi do pojave prekida i flagove
-				P1->IES ^= BIT4;
-				P1->IFG &= ~BIT4;
-		}
+	int interrupt = P1->IV;
+	
+	// provjera da li pin P1.1 (S1) generiše prekid
+	if (interrupt == DIO_PORT_IV__IFG1)
+				P1->OUT ^= BIT0;
+	// provjera da li pin P1.4 (S2) generiše prekid
+	else if (interrupt == DIO_PORT_IV__IFG4)
+				P2->OUT ^= BIT0;
 }
 
 int main(void)
 {
-		volatile uint32_t i;
-		
-		// konfiguracija LED1 kao digitalnog izlaza
-		P1->DIR |= BIT0;
+		// redundantna linija koda koja gasi watchdog timer objekat
+		//WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;
 	
-		// konfiguracija S2 kao digitalnog ulaza
-		P1->DIR &= ~BIT4;
+		// inicijalizacija digitalnih izlaza
+    P1->DIR |= BIT0;
+		P2->DIR |= BIT0;
 		
-		// konfiguracija da se S2 aktivira na pull up
-		P1->OUT |= BIT4;
-		P1->REN |= BIT4;
+		// inicijalizacija digitalnih ulaza
+		P1->DIR &= ~(BIT1 | BIT4);
+		P1->OUT |= (BIT1 | BIT4);
+		P1->REN |= (BIT1 | BIT4);
 		
-		// onemogucavanje prekida dok se mijenja stanje NVIC registara
-		__asm("cpsid i");
-		
-		// konfigurisanje da silazna ivica S2 generiše prekid
-		P1->IES |= BIT4;
-		P1->IE |= BIT4;
-		
-		// inicijalizacija flaga na 0 (nema prekida)
-		P1->IFG = 0;
-		
-		// omogucavanje da S2 vrši prekide
+		// onemogucavanje da dode do prekida dok ih konfigurišemo
+		__ASM("cpsid i");
+	
+		// omogucavanje da P1 generiše prekide
 		NVIC_EnableIRQ(PORT1_IRQn);
 		
-		// omogucavanje prekida nakon završetka rada sa NVIC registrima
-		__asm("cpsie i");
+		// omogucavanje da pinovi generišu prekide
+		P1->IE |= (BIT1 | BIT4);
+	
+		// definisanje da se silaznom ivicom okidaju prekidi
+		P1->IES |= (BIT1 | BIT4);
 		
+		// resetovanje flagova kako se ne bi odmah generisao prekid
+		P1->IFG &= ~(BIT1 | BIT4);
+		
+		// ponovno omogucavanje da dode do prekida
+		__ASM("cpsie i");
+	
 		while (1)
-		{
-				// provjera da li je došlo do prekida
-				if (button_S2 != 0)
-				{
-						// paljenje LED diode
-						P1->OUT |= BIT0;
-						// delay da bi stanje bilo vidljivo
-						for (i = 10000; i > 0; i--);
-				}
-				else
-				{
-						// gašenje LED diode
-						P1->OUT &= ~BIT0;
-						
-						// osluškivanje prekida
-						__ASM("wfi");
-				}
-		}
+			__ASM("wfi");
 }
