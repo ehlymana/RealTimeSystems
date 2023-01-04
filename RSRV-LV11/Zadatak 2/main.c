@@ -3,7 +3,7 @@
 int main(void)
 {
 		// inicijalizacija varijabli za dugmad
-		int S1 = 1, S2 = 1, reset = 0, dugme = 0, mod = 0;
+		int S1 = 1, S2 = 1, reset = 0, dugme = 0, mod = 0, i = 0;
 		
 		// konfiguracija S1 i S2
 		P1->DIR &= ~(BIT1 | BIT4);
@@ -30,13 +30,13 @@ int main(void)
 						dugme = 0;
 				}
 				// pritisnuto samo S1 - zeli se promijeniti mod
-				else if (S1 == 0 && dugme < 2)
+				else if (S1 == 0 && S2 != 0 && dugme < 2)
 				{
 						reset = 0;
 						dugme++;
 				}
 				// pritisnuto samo S2 - resetuj sve brojace
-				else if (S2 == 0)
+				else if (S2 == 0 && S1 != 0)
 				{
 						reset = 0;
 						dugme = 0;
@@ -50,10 +50,10 @@ int main(void)
 				}
 				
 				// promjena trazena 2 puta
-				if (dugme == 1)
+				if (dugme == 2)
 				{
 						dugme = 0;
-						mod++;
+						if (mod< 6) mod++;
 				}
 				
 				// upali odgovarajucu sekvencu ovisno o tome koji je mod
@@ -93,10 +93,12 @@ int main(void)
 						P2->OUT |= (BIT0 | BIT2);
 						P2->OUT &= ~BIT1;
 				}
-				else
+				else if (mod == 6)
 				{
 						// bijela
 						P2->OUT |= (BIT0 | BIT1 | BIT2);
-				}	
+				}
+				
+				for (i = 0; i < 100000; i++);
     }
 }
